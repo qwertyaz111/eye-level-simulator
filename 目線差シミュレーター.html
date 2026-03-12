@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>👀目線差シミュレーター</title>
+    <style>
+        :root { --panel-width: 300px; }
+        body { margin: 0; font-family: 'Helvetica Neue', Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; background: #ffffff; overflow: hidden; touch-action: none; }
+        #ui-panel {
+            position: absolute; top: 10px; left: 10px; width: var(--panel-width);
+            background: rgba(255, 255, 255, 0.95); padding: 15px;
+            border-radius: 15px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-height: calc(100vh - 40px); overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        }
+        @media screen and (max-width: 480px) { :root { --panel-width: 85vw; } }
+        
+        /* 追記: 開閉トグル用スタイル */
+        .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        #toggle-text { font-size: 12px; font-weight: bold; color: #666; background: #eee; padding: 2px 8px; border-radius: 10px; }
+        .collapsed #ui-content { display: none; }
+
+        .app-title { font-size: 1.4rem; margin: 0; color: #333; text-align: center; font-weight: bold; flex-grow: 1; }
+        .app-description { font-size: 11px; color: #777; margin-top: 8px; margin-bottom: 5px; line-height: 1.5; text-align: center; }
+        
+        .app-disclaimer { 
+            font-size: 9px; 
+            color: #aaa; 
+            margin-bottom: 12px; 
+            line-height: 1.4; 
+            text-align: left;
+            background: #f9f9f9;
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; margin-bottom: 10px; }
+        .group-a { background: #fff5f0; border: 1px solid #ffe0d0; }
+        .group-b { background: #f0f7ff; border: 1px solid #d0e7ff; }
+        .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+        .section-header strong { font-size: 15px; color: #444; }
+        .input-row { display: flex; gap: 8px; align-items: flex-end; width: 100%; }
+        .input-item { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+        .hint { font-size: 10px; color: #999; margin-bottom: 2px; font-weight: bold; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white; color: #333; width: 100%; box-sizing: border-box; }
+        .color-picker { width: 100%; height: 38px; border: 2px solid #999; border-radius: 4px; cursor: pointer; padding: 0; background: none; appearance: none; -webkit-appearance: none; }
+        
+        .switch-btn { width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px; -webkit-tap-highlight-color: transparent; margin-bottom: 15px; }
+        .switch-btn:active { background: #000; transform: scale(0.98); }
+        
+        .share-btn { 
+            width: 100%; padding: 12px; background: #000; color: white; border: none; border-radius: 10px; 
+            font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 13px; 
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            text-decoration: none; margin-top: 10px;
+        }
+        .share-btn:active { transform: scale(0.98); opacity: 0.8; }
+
+        .usage-notes {
+            font-size: 10px;
+            color: #999;
+            margin-top: 12px;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .info-box { background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%); padding: 12px; border-radius: 12px; margin-top: 12px; border-left: 5px solid #3498db; color: #333; }
+        .info-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 4px; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: #666; font-size: 10px; font-weight: bold; }
+        .info-value { font-weight: bold; font-size: 14px; color: #2c3e50; }
+        .unit { font-size: 10px; margin-left: 2px; color: #7f8c8d; }
+        
+        #view-label { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 100; pointer-events: none; }
+        #canvas-container { width: 100vw; height: 100vh; cursor: move; }
+        .crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid rgba(0,0,0,0.15); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div id="ui-panel">
+    <div class="panel-header" onclick="togglePanel()">
+        <h1 class="app-title">👀目線差シミュレーター</h1>
+        <span id="toggle-text">閉じる</span>
+    </div>
+
+    <div id="ui-content">
+        <p class="app-description">性別と身長を入力して、身長差の一人称視点を体験できます。<br>
+        二人の距離は15cm～25mまで離れられます。</p>
+        
+        <div class="app-disclaimer">
+            ※初期値は日本人の各性別の平均値です。個人差があるため数値は目安です。<br>
+        </div>
+        
+        <div class="input-group group-a">
+            <div class="section-header"><strong>A</strong></div>
+            <div class="input-row">
+                <div class="input-item"><span class="hint">名前</span><input type="text" id="nameA" placeholder="名前A" oninput="updateScene()"></div>
+                <div class="input-item" style="flex: 0.6;"><span class="hint">性別</span><select id="genderA" onchange="updateScene()"><option value="male">男</option><option value="female" selected>女</option></select></div>
+            </div>
+            <div class="input-row">
+                <div class="input-item"><span class="hint">身長 (cm)</span><input type="number" id="heightA" value="158.0" step="0.1" oninput="updateScene()"></div>
+                <div class="input-item" style="flex: 0.35;"><span class="hint">色</span><input type="color" id="colorA" class="color-picker" value="#ffcc99" oninput="updateScene()"></div>
+            </div>
+        </div>
+
+        <div class="input-group group-b">
+            <div class="section-header"><strong>B</strong></div>
+            <div class="input-row">
+                <div class="input-item"><span class="hint">名前</span><input type="text" id="nameB" placeholder="名前B" oninput="updateScene()"></div>
+                <div class="input-item" style="flex: 0.6;"><span class="hint">性別</span><select id="genderB" onchange="updateScene()"><option value="male" selected>男</option><option value="female">女</option></select></div>
+            </div>
+            <div class="input-row">
+                <div class="input-item"><span class="hint">身長 (cm)</span><input type="number" id="heightB" value="171.5" step="0.1" oninput="updateScene()"></div>
+                <div class="input-item" style="flex: 0.35;"><span class="hint">色</span><input type="color" id="colorB" class="color-picker" value="#ffad60" oninput="updateScene()"></div>
+            </div>
+        </div>
+
+        <div style="padding: 0 5px;">
+            <div class="input-item">
+                <span class="hint">二人の距離: <span id="dist-display" style="color:#333; font-weight:bold;">60cm</span></span>
+                <input type="range" id="distance" min="15" max="2500" value="60" oninput="updateScene()">
+                <div id="dist-hint" style="font-size: 10px; color: #3498db; margin-top: 4px; text-align: right; font-weight: bold; min-height: 15px;"></div>
+            </div>
+            <button class="switch-btn" onclick="switchView()">🔄 視点を入れ替える</button>
+        </div>
+        
+        <div id="info-container">
+            <div class="info-box" id="info"></div>
+            <button class="share-btn" onclick="shareToX()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>で結果をシェアする
+            </button>
+            <div class="usage-notes">
+                スクショ投稿や加工、トレース等はご自由にお楽しみください。<br>
+                ※営利目的や商用利用はご遠慮ください。
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="view-label"></div>
+<div class="crosshair"></div>
+<div id="canvas-container"></div>
+
+<script>
+    function togglePanel() {
+        const panel = document.getElementById('ui-panel');
+        const text = document.getElementById('toggle-text');
+        panel.classList.toggle('collapsed');
+        text.innerText = panel.classList.contains('collapsed') ? '開く' : '閉じる';
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+
+    let scene, camera, renderer, mannequin, currentView = 'A';
+    let isDragging = false, rotation = { x: 0, y: 0 }, previousTouch = null;
+
+    function init() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff); 
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 5000);
+        camera.rotation.order = 'YXZ';
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 2.5));
+        const grid = new THREE.GridHelper(100, 200, 0xeeeeee, 0xf5f5f5);
+        scene.add(grid);
+
+        mannequin = new THREE.Group();
+        scene.add(mannequin);
+
+        window.addEventListener('resize', onWindowResize);
+        setupControls();
+        window.updateScene = updateScene;
+        window.switchView = switchView;
+        window.shareToX = shareToX;
+        window.togglePanel = togglePanel;
+        updateScene();
+        animate();
+    }
+
+    function createTextSprite(text, color, size = 60, isBold = false) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 512; canvas.height = 128;
+        context.font = `${isBold ? 'bold' : ''} ${size}px sans-serif`;
+        context.fillStyle = color; context.textAlign = "center"; context.textBaseline = "middle";
+        context.fillText(text, 256, 64);
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture }));
+        sprite.scale.set(1.5, 0.38, 1);
+        return sprite;
+    }
+
+    function updateScene() {
+        if (!mannequin) return;
+        const nA = document.getElementById('nameA').value || document.getElementById('nameA').placeholder;
+        const nB = document.getElementById('nameB').value || document.getElementById('nameB').placeholder;
+        const hA = parseFloat(document.getElementById('heightA').value) || 158.0;
+        const hB = parseFloat(document.getElementById('heightB').value) || 171.5;
+        const gA = document.getElementById('genderA').value, gB = document.getElementById('genderB').value;
+        const cA = document.getElementById('colorA').value, cB = document.getElementById('colorB').value;
+        
+        const dVal = parseInt(document.getElementById('distance').value);
+        document.getElementById('dist-display').innerText = dVal >= 100 ? (dVal/100).toFixed(1) + "m" : dVal + "cm";
+        
+        let distHintText = "";
+        if (dVal <= 20) distHintText = "（壁ドンの距離感）";
+        else if (dVal >= 2450) distHintText = "（25mプール1本分）";
+        else if (dVal >= 1950 && dVal <= 2050) distHintText = "（電車1両分の長さ）";
+        else if (dVal >= 1750 && dVal <= 1850) distHintText = "（バレーコートの縦の長さ）";
+        else if (dVal >= 1150 && dVal <= 1250) distHintText = "（大型トラックの全長）";
+        else if (dVal >= 450 && dVal <= 500) distHintText = "（乗用車1台分の長さ）";
+        else if (dVal >= 260 && dVal <= 280) distHintText = "（グランドピアノの長さ）";
+        else if (dVal >= 1200 && dVal <= 1300) distHintText = "（25mプールの半分）";
+        document.getElementById('dist-hint').innerText = distHintText;
+
+        const myName = (currentView === 'A') ? nA : nB;
+        const myHeight = (currentView === 'A') ? hA : hB;
+        const myGender = (currentView === 'A') ? gA : gB;
+        const targetName = (currentView === 'A') ? nB : nA;
+        const targetHeight = (currentView === 'A') ? hB : hA;
+        const targetGender = (currentView === 'A') ? gB : gA;
+        const targetColor = (currentView === 'A') ? cB : cA;
+
+        document.getElementById('view-label').innerText = `${myName} の視点`;
+        
+        const eyeRatio = (myGender === 'male') ? 0.904 : 0.903;
+        const eyeLevel = myHeight * eyeRatio * 0.01;
+        camera.position.set(0, eyeLevel, 0);
+
+        while(mannequin.children.length > 0) {
+            const child = mannequin.children[0];
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) { if (child.material.map) child.material.map.dispose(); child.material.dispose(); }
+            mannequin.remove(child);
+        }
+
+        const h = targetHeight * 0.01;
+        const bodyMat = new THREE.MeshPhongMaterial({ color: targetColor, transparent: true, opacity: 0.85 });
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+
+        const headH = h * 0.13;
+        const neckH = h * 0.05;
+        const torsoH = h * 0.37;
+        const legH = h * 0.45;
+        
+        const targetEyeRatio = (targetGender === 'male') ? 0.904 : 0.903;
+        const targetEyeY = h * targetEyeRatio;
+
+        const headGroup = new THREE.Group();
+        headGroup.position.y = targetEyeY; 
+        mannequin.add(headGroup);
+
+        const headGeo = new THREE.SphereGeometry(headH * 0.8, 16, 16);
+        const head = new THREE.Mesh(headGeo, bodyMat);
+        head.position.set(0, (h - headH * 0.5) - targetEyeY, 0);
+        headGroup.add(head);
+
+        const eyeSize = headH * 0.12;
+        [-1, 1].forEach(side => {
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeSize, 16, 16), eyeMat);
+            eye.position.set(side * (headH * 0.28), 0, (headH * 0.7));
+            headGroup.add(eye);
+        });
+        mannequin.userData.headGroup = headGroup;
+
+        const neckW = headH * 0.3;
+        const neckGeo = new THREE.CylinderGeometry(neckW, neckW, neckH, 16);
+        const neck = new THREE.Mesh(neckGeo, bodyMat);
+        neck.position.y = h - headH - (neckH * 0.5);
+        mannequin.add(neck);
+
+        const torsoW = (targetGender === 'male' ? 0.26 : 0.21) * (h/1.7);
+        const torsoGeo = new THREE.BoxGeometry(torsoW, torsoH, torsoW * 0.5);
+        const torso = new THREE.Mesh(torsoGeo, bodyMat);
+        torso.position.y = legH + (torsoH * 0.5);
+        mannequin.add(torso);
+
+        const legW = torsoW * 0.4;
+        const legGeo = new THREE.BoxGeometry(legW, legH, legW);
+        [-1, 1].forEach(side => {
+            const leg = new THREE.Mesh(legGeo, bodyMat);
+            leg.position.set(side * (torsoW * 0.25), legH * 0.5, 0);
+            mannequin.add(leg);
+        });
+
+        const armW = torsoW * 0.3;
+        const armH = h * 0.38;
+        const armGeo = new THREE.BoxGeometry(armW, armH, armW);
+        [-1, 1].forEach(side => {
+            const armAnchor = new THREE.Group();
+            armAnchor.position.set(side * (torsoW * 0.6), legH + torsoH - (armW * 0.5), 0);
+            const armMesh = new THREE.Mesh(armGeo, bodyMat);
+            armMesh.position.set(0, -armH * 0.5, 0);
+            armAnchor.rotation.z = side * 0.25;
+            armAnchor.add(armMesh);
+            mannequin.add(armAnchor);
+        });
+
+        const nameLabel = createTextSprite(`${targetName} (${targetHeight.toFixed(1)}cm)`, "#333", 45, true);
+        nameLabel.position.set(0, h + 0.3, 0);
+        mannequin.add(nameLabel);
+
+        mannequin.position.z = -dVal * 0.01;
+        const diff = (targetEyeY - eyeLevel) * 100;
+        document.getElementById('info').innerHTML = `
+            <div class="info-row"><span class="info-label">📏 身長差</span><span class="info-value">${Math.abs(hB - hA).toFixed(1)}<span class="unit">cm</span></span></div>
+            <div class="info-row"><span class="info-label">👁️ 相手の目線</span><span class="info-value" style="color: ${diff > 0 ? '#e74c3c' : '#2980b9'}">${Math.abs(diff).toFixed(1)}<span class="unit">cm ${diff > 0 ? '上' : '下'}</span></span></div>
+        `;
+    }
+
+    function shareToX() {
+        const nA = document.getElementById('nameA').value || document.getElementById('nameA').placeholder;
+        const nB = document.getElementById('nameB').value || document.getElementById('nameB').placeholder;
+        const hA = parseFloat(document.getElementById('heightA').value) || 158.0;
+        const hB = parseFloat(document.getElementById('heightB').value) || 171.5;
+        const diff = Math.abs(hA - hB).toFixed(1);
+        const text = `${nA}(${hA}cm)と${nB}(${hB}cm)の身長差(${diff}cm)を一人称で体験しました！\n#目線差シミュレーター\n`;
+        const url = window.location.href;
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+    }
+
+    function switchView() { currentView = (currentView === 'A') ? 'B' : 'A'; updateScene(); }
+    
+    function setupControls() {
+        const container = document.getElementById('canvas-container');
+        const onMove = (dx, dy) => {
+            rotation.y -= dx * 0.005; rotation.x -= dy * 0.005;
+            rotation.x = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, rotation.x));
+            camera.rotation.set(rotation.x, rotation.y, 0);
+        };
+        container.addEventListener('mousedown', () => isDragging = true);
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', (e) => { if(isDragging) onMove(e.movementX, e.movementY); });
+        container.addEventListener('touchstart', (e) => { isDragging = true; previousTouch = e.touches[0]; }, { passive: false });
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging || !previousTouch) return;
+            const touch = e.touches[0];
+            onMove(touch.clientX - previousTouch.clientX, touch.clientY - previousTouch.clientY);
+            previousTouch = touch;
+        }, { passive: false });
+        window.addEventListener('touchend', () => { isDragging = false; previousTouch = null; });
+    }
+    
+    function onWindowResize() { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+    
+    function animate() { 
+        requestAnimationFrame(animate); 
+        if (mannequin && mannequin.userData.headGroup) {
+            mannequin.userData.headGroup.lookAt(camera.position);
+        }
+        renderer.render(scene, camera); 
+    }
+    
+    init();
+</script>
+</body>
+</html>
