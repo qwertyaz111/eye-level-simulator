@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -8,20 +8,38 @@
         :root { --panel-width: 300px; }
         body { margin: 0; font-family: 'Helvetica Neue', Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; background: #ffffff; overflow: hidden; }
         
-        /* 修正: スマホ画面に収まり、上から下までスクロール可能にするCSS */
+        /* 修正: スマホ下部バーに被らないよう位置指定と内側下部余白(padding-bottom)を調整 */
         #ui-panel {
-            position: absolute; top: 10px; left: 10px; width: var(--panel-width);
-            max-height: calc(100vh - 20px);
-            max-height: calc(100dvh - 20px); /* スマホのアドレスバー考慮 */
-            background: rgba(255, 255, 255, 0.95); padding: 15px; padding-bottom: 40px;
-            border-radius: 15px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y;
-            border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            position: absolute; 
+            top: 10px; 
+            bottom: 10px; /* 上下10pxに固定して画面内に収める */
+            left: 10px; 
+            width: var(--panel-width);
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 15px; 
+            padding-bottom: 60px; /* 下部に十分なスクロール余白を確保 */
+            border-radius: 15px; 
+            z-index: 100; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; 
+            touch-action: pan-y;
+            border: 1px solid rgba(255,255,255,0.3); 
+            backdrop-filter: blur(10px); 
+            -webkit-backdrop-filter: blur(10px);
             box-sizing: border-box;
         }
+        
         @media screen and (max-width: 480px) { 
             :root { --panel-width: calc(100vw - 20px); }
-            #ui-panel { left: 10px; right: 10px; }
+            #ui-panel { 
+                left: 10px; 
+                right: 10px; 
+                top: 10px;
+                /* スマホ下部ツールバーおよびセーフエリア分クリアランスを確保 */
+                bottom: calc(10px + env(safe-area-inset-bottom)); 
+                padding-bottom: 80px; 
+            }
         }
         
         .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
@@ -207,7 +225,6 @@
         text.innerText = panel.classList.contains('collapsed') ? '開く' : '閉じる';
     }
 
-    /* パネル内でのタッチ・スワイプが問題なく背後の3Dキャンバスへ干渉しないように設定 */
     const uiPanel = document.getElementById('ui-panel');
     uiPanel.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
     uiPanel.addEventListener('touchmove', (e) => { e.stopPropagation(); }, { passive: true });
