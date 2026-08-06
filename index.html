@@ -7,16 +7,23 @@
     <style>
         :root { --panel-width: 300px; }
         body { margin: 0; font-family: 'Helvetica Neue', Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; background: #ffffff; overflow: hidden; }
+        
+        /* 修正: スマホ画面に収まり、上から下までスクロール可能にするCSS */
         #ui-panel {
             position: absolute; top: 10px; left: 10px; width: var(--panel-width);
-            background: rgba(255, 255, 255, 0.95); padding: 15px; padding-bottom: 30px;
+            max-height: calc(100vh - 20px);
+            max-height: calc(100dvh - 20px); /* スマホのアドレスバー考慮 */
+            background: rgba(255, 255, 255, 0.95); padding: 15px; padding-bottom: 40px;
             border-radius: 15px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            max-height: calc(100vh - 40px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+            overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y;
             border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-sizing: border-box;
         }
-        @media screen and (max-width: 480px) { :root { --panel-width: 85vw; } }
+        @media screen and (max-width: 480px) { 
+            :root { --panel-width: calc(100vw - 20px); }
+            #ui-panel { left: 10px; right: 10px; }
+        }
         
-        /* 追記: 開閉トグル用スタイル */
         .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
         #toggle-text { font-size: 12px; font-weight: bold; color: #666; background: #eee; padding: 2px 8px; border-radius: 10px; }
         .collapsed #ui-content { display: none; }
@@ -57,7 +64,6 @@
         }
         .share-btn:active { transform: scale(0.98); opacity: 0.8; }
 
-        /* 追加: 他ツールリンク用スタイル */
         .other-tools-link {
             margin-top: 20px;
             padding: 10px;
@@ -90,7 +96,6 @@
             text-align: center;
         }
 
-        /* 修正: info-boxのデザイン調整 */
         .info-box { 
             background: #ffffff; 
             padding: 15px; 
@@ -176,7 +181,6 @@
                 <a href="https://qwertyaz111.github.io/my-site-hub/">
                     ツール・シミュレーター一覧
                 </a>
-                
             </div>
 
             <div class="usage-notes">
@@ -203,10 +207,10 @@
         text.innerText = panel.classList.contains('collapsed') ? '開く' : '閉じる';
     }
 
-    // stopPropagationを解除し、要素内の正常なスワイプ操作を有効化
+    /* パネル内でのタッチ・スワイプが問題なく背後の3Dキャンバスへ干渉しないように設定 */
     const uiPanel = document.getElementById('ui-panel');
-    uiPanel.addEventListener('touchstart', (e) => {}, { passive: true });
-    uiPanel.addEventListener('touchmove', (e) => {}, { passive: true });
+    uiPanel.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
+    uiPanel.addEventListener('touchmove', (e) => { e.stopPropagation(); }, { passive: true });
 </script>
 
 <script type="module">
@@ -427,5 +431,4 @@
     init();
 </script>
 </body>
-</html>
 </html>
